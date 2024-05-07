@@ -13,6 +13,8 @@ import joblib
 pipe_lr1 = joblib.load(open("./models/japan_svm.pkl","rb"))
 pipe_lr2 = joblib.load(open("./models/korean_svm.pkl","rb"))
 pipe_lr3 = joblib.load(open("./models/emotion_classifier_pipe_lr.pkl","rb"))
+pipe_lr4 = joblib.load(open("./models/filipino svm.pkl","rb"))
+pipe_lr5 = joblib.load(open("./models/spanish svm.pkl","rb"))
 
 # Track Utils
 from track_utils import create_page_visited_table, add_page_visited_details, view_all_page_visited_details, add_prediction_details, view_all_prediction_details, create_emotionclf_table
@@ -20,7 +22,9 @@ from track_utils import create_page_visited_table, add_page_visited_details, vie
 # Function
 def predict_emotions(docx, model):
     results = model.predict([docx])
-    return results[0]
+    probabilities = model.predict_proba([docx])[0] * 100  # Convert probabilities to percentage
+    max_probability_index = np.argmax(probabilities)
+    return results[0], probabilities[max_probability_index]
 
 def get_prediction_proba(docx, model):
     results = model.predict_proba([docx])
@@ -39,7 +43,7 @@ def main():
 
         with st.form(key='emotion_clf_form'):
             raw_text = st.text_area("Type Here")
-            model_choice = st.selectbox("Select Model", ["Japanese", "Korean", "English/Tagalog/Spanish"])
+            model_choice = st.selectbox("Select Model", ["Japanese", "Korean", "English","Filipino", "Spanish"])
             submit_text = st.form_submit_button(label = 'Submit')
 
         if submit_text:
@@ -50,31 +54,40 @@ def main():
                 model = pipe_lr1
             elif model_choice == "Korean":
                 model = pipe_lr2
+            elif model_choice == "Filipino":
+                model = pipe_lr4
+            elif model_choice == "Spanish":
+                model = pipe_lr5        
             else:
                 model = pipe_lr3
 
-            prediction = predict_emotions(raw_text, model)
+            pred, confidence = predict_emotions(raw_text, model)
             probability = get_prediction_proba(raw_text, model)
 
-            add_prediction_details(raw_text, prediction, np.max(probability), datetime.now())
+            add_prediction_details(raw_text, pred, confidence, datetime.now())
 
             with col1:
                 st.success("Original Text")
-                st.write(raw_text)
+                st.header(raw_text)
 
                 st.success("Prediction")
-                st.write("{}".format(prediction))
-                st.write("Confidence:{:.2f}%".format(np.max(probability) * 100))
+                st.header(pred)
+                st.header("Confidence:{:.2f}%".format(confidence))
 
             with col2:
                 st.success("Prediction Probability")
-                # st.write(probability)
                 proba_df = pd.DataFrame(probability, columns = model.classes_)
-                # st.write(proba_df.T)
                 proba_df_clean = proba_df.T.reset_index()
                 proba_df_clean.columns = ["emotions", "probability"]
 
-                fig = alt.Chart(proba_df_clean).mark_bar().encode(x = 'emotions', y = 'probability', color = 'emotions')
+                text_size = 18 # Set the text size here
+
+                fig = alt.Chart(proba_df_clean).mark_bar().encode(
+                    x = alt.X('emotions', axis=alt.Axis(labelFontSize=text_size)),
+                    y = alt.Y('probability', axis=alt.Axis(labelFontSize=text_size)),
+                    color = 'emotions',
+                    text = alt.Text('probability', format=".2f")
+                )
                 st.altair_chart(fig,use_container_width = True)
 
     elif choice == "Monitor":
@@ -85,7 +98,7 @@ def main():
             page_visited_details = pd.DataFrame(view_all_page_visited_details(), columns = ['Page Name', 'Time of Visit'])
             st.dataframe(page_visited_details)  
 
-            pg_count = page_visited_details['Page Name'].value_counts().rename_axis('Page Name').reset_index(name = 'Counts')
+            pg_count =page_visited_details['Page Name'].value_counts().rename_axis('Page Name').reset_index(name = 'Counts')
             c = alt.Chart(pg_count).mark_bar().encode(x = 'Page Name', y = 'Counts', color = 'Page Name')
             st.altair_chart(c,use_container_width = True)   
 
