@@ -1,18 +1,12 @@
-# Core Packages
+import emoji
 import streamlit as st
 import altair as alt
 import plotly.express as px
-
-# EDA Packages
 import pandas as pd
 import numpy as np
 from datetime import datetime
-
-# Load Models
-import joblib
-
-# Track Utils
 from track_utils import create_page_visited_table, add_page_visited_details, view_all_page_visited_details, add_prediction_details, view_all_prediction_details, create_emotionclf_table
+import joblib
 
 # Function to load models
 def load_models():
@@ -25,6 +19,13 @@ def load_models():
         "Emoji": joblib.load(open("./models/emoji svm.pkl", "rb")),
     }
     return models
+
+# Function to preprocess emoticons
+def preprocess_emoticons(emoticon_string):
+    emoticons = emoji.demojize(emoticon_string).split()
+    emoticon_text = [emoji.demojize(emoticon) for emoticon in emoticons]
+    text_representation = ' '.join(emoticon_text)
+    return text_representation
 
 # Function to predict emotions
 def predict_emotions(docx, model, threshold=0.5):
@@ -62,6 +63,9 @@ def main():
         if submit_text:
             models = load_models()
             model = models[model_choice]
+
+            # Preprocess emoticons in raw text
+            raw_text = preprocess_emoticons(raw_text)
 
             pred, confidence = predict_emotions(raw_text, model)
 
@@ -108,7 +112,7 @@ def main():
             c = alt.Chart(pg_count).mark_bar().encode(x='Page Name', y='Counts', color='Page Name')
             st.altair_chart(c, use_container_width=True)   
 
-        with st.expander('Emotion Classifier Metrics'):
+        with st.expander('EmotionClassifier Metrics'):
             df_emotions = pd.DataFrame(view_all_prediction_details(), columns=['Rawtext', 'Prediction', 'Probability', 'Time_of_Visit'])
             st.dataframe(df_emotions)
 
@@ -133,7 +137,7 @@ def main():
 
         st.markdown("##### 1. Real-time Emotion Detection")
 
-        st.write("Our app offers real-time emotion detection, allowing you to instantly analyze the emotions expressed in any given text. Whetheryou're analyzing customer feedback, social media posts, or any other form of text, our app provides you with immediate insights into the emotions underlying the text.")
+        st.write("Our app offers real-time emotion detection, allowing you to instantly analyze the emotions expressed in any given text. Whether you're analyzing customer feedback, social media posts, or any other form of text, our app provides you with immediate insights into the emotions underlying the text.")
 
         st.markdown("##### 2. Confidence Score")
 
